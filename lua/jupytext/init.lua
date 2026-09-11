@@ -47,6 +47,7 @@ M.config = {
   force_ft = nil,
   custom_language_formatting = {},
   empty_notebook_generator = empty_notebook,
+  metadata_language_fields = nil,
 }
 
 local write_to_ipynb = function(event)
@@ -132,7 +133,7 @@ local read_from_ipynb = function(ipynb_filename)
   if check_new_file(ipynb_filename) == false then
     return
   end
-  local metadata = utils.get_ipynb_metadata(ipynb_filename)
+  local metadata = utils.get_ipynb_metadata(ipynb_filename, M.config.metadata_language_fields)
   ipynb_filename = vim.fn.resolve(vim.fn.expand(ipynb_filename))
 
   -- Decide output extension and style

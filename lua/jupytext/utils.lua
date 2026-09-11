@@ -12,27 +12,44 @@ local language_names = {
   python3 = "python",
 }
 
-M.get_ipynb_metadata = function(filename)
-  local metadata = vim.json.decode(io.open(filename, "r"):read "a")["metadata"]
-  local language
+-- Locations to look for the language string, ordered by priority.
+local language_locations = {
+  { path = { "kernelspec", "language" } },
+  { path = { "kernelspec", "name" }, map = language_names },
+  { path = { "jupytext", "main_language" } },
+  { path = { "language_info", "name" } },
+}
 
-  if metadata.kernelspec then
-    language = metadata.kernelspec.language
-    if not language and metadata.kernelspec.name then
-      language = language_names[metadata.kernelspec.name]
+local function dig(tbl, path)
+  local node = tbl
+  for _, key in ipairs(path) do
+    if type(node) ~= "table" then
+      return nil
     end
+    node = node[key]
+  end
+  return node
+end
+
+M.get_ipynb_metadata = function(filename, metadata_language_fields)
+  local metadata = vim.json.decode(io.open(filename, "r"):read "a")["metadata"]
+
+  -- User-supplied fields are appended at the end (least priority).
+  local locations = vim.deepcopy(language_locations)
+  for _, path in ipairs(metadata_language_fields or {}) do
+    table.insert(locations, { path = path })
   end
 
-  if not language and metadata.jupytext then
-    language = metadata.jupytext.main_language
-  end
-
-  if not language and metadata.language_info then
-    language = metadata.language_info.name
-  end
-
-  if not language and metadata["application/vnd.databricks.v1+notebook"] then
-    language = metadata["application/vnd.databricks.v1+notebook"].language
+  local language
+  for _, loc in ipairs(locations) do
+    local value = dig(metadata, loc.path)
+    if value ~= nil and loc.map then
+      value = loc.map[value]
+    end
+    if value then
+      language = value
+      break
+    end
   end
 
   local extension = language_extensions[language]
